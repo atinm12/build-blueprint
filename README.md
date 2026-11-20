@@ -1,6 +1,6 @@
 # Build Blueprint
 
-**Find a hackathon idea backed by real evidence.**
+**Find a hackathon idea backed by real evidence.** · **Live:** https://atinm12.github.io/build-blueprint/
 
 Build Blueprint pulls clearly stated, evidence-backed problems out of academic research and news and organizes them by industry. Beginner hackathon teams can browse validated problems to get ideas fast, or paste in their own idea to see if real studies back it up.
 
