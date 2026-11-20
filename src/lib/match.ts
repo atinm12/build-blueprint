@@ -15,7 +15,8 @@ const STOPWORDS = new Set(
   connect connects connecting match matches matching manage manages managing keep keeps go goes going take takes
   know knows see sees look looks feel feels try tries start starts stop stops turn turns put puts set sets
   fewer less lower higher faster quickly automatically instantly personalized real-time realtime time times day days
-  one two three first last next every their them through across within around`.split(/\s+/),
+  one two three first last next every their them through across within around tell tells telling
+  everything anything something stuff fun cool awesome amazing productive productivity uber airbnb tinder marketplace`.split(/\s+/),
 )
 
 /** Words that show up in real problem statements — used to rank the user's keywords. */
@@ -33,7 +34,7 @@ function stem(word: string): string {
 export function extractKeywords(text: string, max = 7): string[] {
   const tokens = text
     .toLowerCase()
-    .replace(/[^a-z0-9\s-]/g, ' ')
+    .replace(/[^a-z0-9\s]/g, ' ') // hyphens too: 'ai-powered' → 'ai', 'powered'
     .split(/\s+/)
     .filter((w) => w.length > 2 && !STOPWORDS.has(w) && !/^\d+$/.test(w))
   const seen = new Set<string>()
@@ -97,10 +98,28 @@ export function newsIsRelevant(article: NewsArticle, keywords: string[]): boolea
   return keywords.filter((k) => containsTerm(title, k)).length >= minMatchesFor(keywords)
 }
 
+/**
+ * Too little to search on: under 3 specific words, or only a few words and none of them
+ * sound like a real-world problem (e.g. "a chatbot for everything", "make studying fun").
+ */
+export function isTooVague(keywords: string[]): boolean {
+  if (keywords.length < 3) return true
+  const anyProblemWord = keywords.some((k) => PROBLEM_VOCAB.has(stem(k)))
+  return !anyProblemWord && keywords.length < 4
+}
+
+const PROBLEM_SIGNAL =
+  /barrier|lack|risk|burden|shortage|insecur|prevalen|challeng|difficult|harm|cost|unmet|gap|disparit|struggl|inequit|declin|loss|stress|burnout|inadequa|unable|deficien|vulnerab|problem|obstacle|hardship|exclu/
+
+/** Does the paper describe something going wrong for people, rather than just studying a topic? */
+export function hasProblemSignal(paper: Paper): boolean {
+  return PROBLEM_SIGNAL.test(`${paper.title} ${paper.summary}`.toLowerCase())
+}
+
 export type Verdict = 'strong' | 'some' | 'none'
 
-export function verdictFor(relevantPapers: number, newsCount: number, libraryMatches: number): Verdict {
-  if (relevantPapers >= 4 || (relevantPapers >= 2 && libraryMatches > 0 && newsCount >= 1)) return 'strong'
+export function verdictFor(relevantPapers: number, problemPapers: number, newsCount: number, libraryMatches: number): Verdict {
+  if (problemPapers >= 3 || (problemPapers >= 2 && libraryMatches > 0)) return 'strong'
   if (relevantPapers >= 1 || libraryMatches > 0 || newsCount >= 2) return 'some'
   return 'none'
 }

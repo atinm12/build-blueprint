@@ -1,13 +1,13 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
-import { AlertCircle, CheckCircle2, CircleDashed, ArrowRight, Search } from 'lucide-react'
-import { extractKeywords, matchLibrary, minMatchesFor, newsIsRelevant, paperRelevance, verdictFor, type Verdict } from '../lib/match'
+import { AlertCircle, CheckCircle2, CircleDashed, ArrowRight, HelpCircle, Search } from 'lucide-react'
+import { extractKeywords, hasProblemSignal, isTooVague, matchLibrary, minMatchesFor, newsIsRelevant, paperRelevance, verdictFor, type Verdict } from '../lib/match'
 import { searchNews, searchPapers, ResearchError, type NewsArticle, type Paper } from '../lib/research'
 import { GoogleNewsLink, NewsItem, PaperItem } from '../components/LiveEvidence'
 import { ProblemRow, Section, Spinner } from '../components/ui'
 
 interface Results {
-  papers: Array<{ paper: Paper; relevance: number }>
+  papers: Array<{ paper: Paper; relevance: number; isProblem: boolean }>
   news: NewsArticle[]
   newsProvider: string
   paperError: string | null
@@ -17,13 +17,13 @@ interface Results {
 const VERDICT: Record<Verdict, { title: string; body: string; icon: typeof CheckCircle2; tone: string }> = {
   strong: {
     title: 'Strong evidence this problem is real',
-    body: 'Multiple studies discuss the problem behind your idea. Use the sources below in your pitch.',
+    body: 'Multiple studies describe the problem behind your idea as something people struggle with. Use the sources below in your pitch.',
     icon: CheckCircle2,
     tone: 'border-emerald-200 bg-emerald-50 text-emerald-900',
   },
   some: {
     title: 'Some evidence found',
-    body: 'There’s a bit of support, but it’s thin. Read the sources, or rephrase your idea around the underlying problem to find more.',
+    body: 'Researchers study this topic, but few sources describe it as a problem people actually face. Read the sources, or rephrase your idea around who struggles and why.',
     icon: CircleDashed,
     tone: 'border-amber-200 bg-amber-50 text-amber-900',
   },
@@ -47,10 +47,11 @@ export default function Validate() {
   }, [idea])
 
   const keywords = useMemo(() => extractKeywords(idea), [idea])
-  const library = useMemo(() => (idea ? matchLibrary(idea) : []), [idea])
+  const tooVague = useMemo(() => isTooVague(keywords), [keywords])
+  const library = useMemo(() => (idea && !tooVague ? matchLibrary(idea) : []), [idea, tooVague])
 
   useEffect(() => {
-    if (!idea || keywords.length === 0) {
+    if (!idea || tooVague) {
       setResults(null)
       return
     }
@@ -62,9 +63,9 @@ export default function Validate() {
     const papersP = searchPapers(keywords.slice(0, 5).join(' '), 15, 1)
       .then((ps) => ({
         ok: ps
-          .map((paper) => ({ paper, relevance: paperRelevance(paper, keywords) }))
+          .map((paper) => ({ paper, relevance: paperRelevance(paper, keywords), isProblem: hasProblemSignal(paper) }))
           .filter((x) => x.relevance >= minMatch)
-          .sort((a, b) => b.relevance - a.relevance || b.paper.citations - a.paper.citations)
+          .sort((a, b) => Number(b.isProblem) - Number(a.isProblem) || b.relevance - a.relevance || b.paper.citations - a.paper.citations)
           .slice(0, 6),
         err: null as string | null,
       }))
@@ -82,9 +83,10 @@ export default function Validate() {
     return () => {
       alive = false
     }
-  }, [idea, keywords])
+  }, [idea, keywords, tooVague])
 
-  const verdict = results ? verdictFor(results.papers.length, results.news.length, library.length) : null
+  const problemPapers = results ? results.papers.filter((p) => p.isProblem).length : 0
+  const verdict = results ? verdictFor(results.papers.length, problemPapers, results.news.length, library.length) : null
   const V = verdict ? VERDICT[verdict] : null
 
   return (
@@ -130,11 +132,34 @@ export default function Validate() {
         </div>
       )}
 
-      {idea && keywords.length === 0 && (
-        <p className="text-sm text-gray-600">Add a few more specific words about the problem so we have something to search for.</p>
+      {idea && tooVague && (
+        <div className="flex gap-3 rounded-lg border border-gray-300 bg-white p-4 text-gray-800">
+          <HelpCircle className="mt-0.5 h-5 w-5 shrink-0 text-gray-500" />
+          <div>
+            <div className="font-semibold">Too vague to check</div>
+            <p className="mt-0.5 text-sm text-gray-600">
+              {keywords.length
+                ? <>We only found {keywords.length === 1 ? 'one specific word' : 'a few general words'} ({keywords.join(', ')}). </>
+                : <>We couldn’t find any specific words to search for. </>}
+              Say <strong>who</strong> has the problem and <strong>what goes wrong</strong> for them.
+            </p>
+            <p className="mt-3 text-sm text-gray-600">
+              <span className="text-gray-400">Instead of</span> “A chatbot for everything”
+              <br />
+              <span className="text-gray-400">try</span>{' '}
+              <button
+                type="button"
+                onClick={() => setParams({ q: 'First-generation college students can’t get answers about financial aid outside office hours' })}
+                className="text-left font-medium text-gray-900 underline decoration-gray-300 underline-offset-2 hover:decoration-gray-700"
+              >
+                “First-generation college students can’t get answers about financial aid outside office hours”
+              </button>
+            </p>
+          </div>
+        </div>
       )}
 
-      {idea && keywords.length > 0 && (
+      {idea && !tooVague && (
         <>
           <div className="flex flex-wrap items-center gap-2 text-sm">
             <span className="text-gray-500">Searching for:</span>
@@ -152,7 +177,7 @@ export default function Validate() {
                 <div className="font-semibold">{V.title}</div>
                 <p className="mt-0.5 text-sm opacity-90">{V.body}</p>
                 <p className="mt-2 text-xs opacity-75">
-                  {results!.papers.length} relevant {results!.papers.length === 1 ? 'study' : 'studies'} · {results!.news.length} news{' '}
+                  {results!.papers.length} relevant {results!.papers.length === 1 ? 'study' : 'studies'} ({problemPapers} describe a problem) · {results!.news.length} news{' '}
                   {results!.news.length === 1 ? 'article' : 'articles'} · {library.length} similar {library.length === 1 ? 'problem' : 'problems'} in the library
                 </p>
               </div>
@@ -174,7 +199,7 @@ export default function Validate() {
                 {results.paperError ? (
                   <p className="text-sm text-gray-500">{results.paperError}</p>
                 ) : results.papers.length ? (
-                  <ul>{results.papers.map(({ paper, relevance }) => <PaperItem key={paper.id} paper={paper} highlight={relevance} />)}</ul>
+                  <ul>{results.papers.map(({ paper, relevance, isProblem }) => <PaperItem key={paper.id} paper={paper} highlight={relevance} describesProblem={isProblem} />)}</ul>
                 ) : (
                   <p className="text-sm text-gray-500">No studies closely matched your idea’s keywords.</p>
                 )}

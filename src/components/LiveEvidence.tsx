@@ -21,7 +21,7 @@ export function useAsync<T>(fn: () => Promise<T>, deps: unknown[]): Load<T> {
   return state
 }
 
-export function PaperItem({ paper, highlight }: { paper: Paper; highlight?: number }) {
+export function PaperItem({ paper, highlight, describesProblem }: { paper: Paper; highlight?: number; describesProblem?: boolean }) {
   return (
     <li className="border-t border-gray-100 py-3 first:border-0 first:pt-0">
       <a href={paper.url} target="_blank" rel="noreferrer" className="text-sm font-medium text-gray-900 hover:underline">
@@ -35,6 +35,7 @@ export function PaperItem({ paper, highlight }: { paper: Paper; highlight?: numb
             matches {highlight} keyword{highlight === 1 ? '' : 's'}
           </span>
         )}
+        {describesProblem && <span className="ml-2 rounded bg-emerald-50 px-1.5 py-0.5 font-medium text-emerald-800">Describes a problem</span>}
       </div>
       {paper.summary && (
         <p className="mt-1.5 flex gap-1.5 text-sm text-gray-600">
