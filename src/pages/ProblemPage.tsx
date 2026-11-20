@@ -70,7 +70,7 @@ export default function ProblemPage() {
           </Section>
 
           <Section title="Recent news (live)">
-            <LiveNews terms={problem.query.split(' ').slice(0, 3)} mustMatch={problem.keywords} />
+            <LiveNews terms={problem.query.split(' ').slice(0, 2)} mustMatch={[problem.query.split(' ').slice(0, 2).join(' '), ...problem.keywords]} />
           </Section>
         </div>
 

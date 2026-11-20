@@ -587,7 +587,7 @@ export const PROBLEMS: Problem[] = [
       'A fridge tracker that suggests recipes for food about to expire',
       'A dining-hall leftovers alert that pings students before food is thrown out',
     ],
-    query: 'household food waste reduction',
+    query: 'food waste household reduction',
     keywords: ['food waste', 'leftovers', 'groceries', 'expiration', 'compost', 'restaurant', 'dining hall'],
   },
   {
@@ -687,7 +687,7 @@ export const PROBLEMS: Problem[] = [
       'A food-pantry finder with real-time hours and what’s in stock',
       'A meal planner that stretches a SNAP budget across the month',
     ],
-    query: 'household food insecurity SNAP',
+    query: 'food insecurity household SNAP',
     keywords: ['food insecurity', 'hunger', 'snap', 'wic', 'food bank', 'families', 'groceries'],
   },
 
