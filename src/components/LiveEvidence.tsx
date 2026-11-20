@@ -65,8 +65,15 @@ export function LivePapers({ query }: { query: string }) {
   return <ul>{state.data.map((p) => <PaperItem key={p.id} paper={p} />)}</ul>
 }
 
-export function LiveNews({ terms }: { terms: string[] }) {
-  const state = useAsync(() => searchNews(terms, 5), [terms.join('|')])
+export function LiveNews({ terms, mustMatch }: { terms: string[]; mustMatch?: string[] }) {
+  const state = useAsync(async () => {
+    const result = await searchNews(terms, 10)
+    // keep only headlines that name the problem itself, not just share a word with the query
+    const articles = mustMatch
+      ? result.articles.filter((a) => mustMatch.some((k) => a.title.toLowerCase().includes(k.toLowerCase())))
+      : result.articles
+    return { ...result, articles: articles.slice(0, 5) }
+  }, [terms.join('|')])
   return (
     <div>
       {state.status === 'loading' && <Spinner label="Searching recent news…" />}
